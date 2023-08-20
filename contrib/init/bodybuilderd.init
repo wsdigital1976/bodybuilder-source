@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#
+#  bodybuilderd The bodybuilder core server.
+#
+#
+# chkconfig: 345 80 20
+# description: bodybuilderd
+# processname: bodybuilderd
+#
+
+# Source function library.
+. /etc/init.d/functions
+
+# you can override defaults in /etc/sysconfig/bodybuilderd, see below
+if [ -f /etc/sysconfig/bodybuilderd ]; then
+        . /etc/sysconfig/bodybuilderd
+fi
+
+RETVAL=0
+
+prog=bodybuilderd
+# you can override the lockfile via BODYBUILDERD_LOCKFILE in /etc/sysconfig/bodybuilderd
+lockfile=${BODYBUILDERD_LOCKFILE-/var/lock/subsys/bodybuilderd}
+
+# bodybuilderd defaults to /usr/bin/bodybuilderd, override with BODYBUILDERD_BIN
+bodybuilderd=${BODYBUILDERD_BIN-/usr/bin/bodybuilderd}
+
+# bodybuilderd opts default to -disablewallet, override with BODYBUILDERD_OPTS
+bodybuilderd_opts=${BODYBUILDERD_OPTS--disablewallet}
+
+start() {
+    echo -n $"Starting $prog: "
+    daemon $DAEMONOPTS $bodybuilderd $bodybuilderd_opts
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch $lockfile
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc $prog -t600
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f $lockfile
+    return $RETVAL
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status $prog
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: service $prog {start|stop|status|restart}"
+        exit 1
+        ;;
+esac

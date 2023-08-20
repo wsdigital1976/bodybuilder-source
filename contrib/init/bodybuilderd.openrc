@@ -1,0 +1,93 @@
+#!/sbin/openrc-run
+
+# backward compatibility for existing gentoo layout 
+#
+if [ -d "/var/lib/bodybuilder/.bodybuilder" ]; then
+	BODYBUILDERD_DEFAULT_DATADIR="/var/lib/bodybuilder/.bodybuilder"
+else
+	BODYBUILDERD_DEFAULT_DATADIR="/var/lib/bodybuilderd"
+fi
+
+BODYBUILDERD_CONFIGFILE=${BODYBUILDERD_CONFIGFILE:-/etc/bodybuilder/bodybuilder.conf}
+BODYBUILDERD_PIDDIR=${BODYBUILDERD_PIDDIR:-/var/run/bodybuilderd}
+BODYBUILDERD_PIDFILE=${BODYBUILDERD_PIDFILE:-${BODYBUILDERD_PIDDIR}/bodybuilderd.pid}
+BODYBUILDERD_DATADIR=${BODYBUILDERD_DATADIR:-${BODYBUILDERD_DEFAULT_DATADIR}}
+BODYBUILDERD_USER=${BODYBUILDERD_USER:-${BODYBUILDER_USER:-bodybuilder}}
+BODYBUILDERD_GROUP=${BODYBUILDERD_GROUP:-bodybuilder}
+BODYBUILDERD_BIN=${BODYBUILDERD_BIN:-/usr/bin/bodybuilderd}
+BODYBUILDERD_NICE=${BODYBUILDERD_NICE:-${NICELEVEL:-0}}
+BODYBUILDERD_OPTS="${BODYBUILDERD_OPTS:-${BODYBUILDER_OPTS}}"
+
+name="Bodybuilder Core Daemon"
+description="Bodybuilder cryptocurrency P2P network daemon"
+
+command="/usr/bin/bodybuilderd"
+command_args="-pid=\"${BODYBUILDERD_PIDFILE}\" \
+		-conf=\"${BODYBUILDERD_CONFIGFILE}\" \
+		-datadir=\"${BODYBUILDERD_DATADIR}\" \
+		-daemon \
+		${BODYBUILDERD_OPTS}"
+
+required_files="${BODYBUILDERD_CONFIGFILE}"
+start_stop_daemon_args="-u ${BODYBUILDERD_USER} \
+			-N ${BODYBUILDERD_NICE} -w 2000"
+pidfile="${BODYBUILDERD_PIDFILE}"
+
+# The retry schedule to use when stopping the daemon. Could be either
+# a timeout in seconds or multiple signal/timeout pairs (like
+# "SIGKILL/180 SIGTERM/300")
+retry="${BODYBUILDERD_SIGTERM_TIMEOUT}"
+
+depend() {
+	need localmount net
+}
+
+# verify
+# 1) that the datadir exists and is writable (or create it)
+# 2) that a directory for the pid exists and is writable
+# 3) ownership and permissions on the config file
+start_pre() {
+	checkpath \
+	-d \
+	--mode 0750 \
+	--owner "${BODYBUILDERD_USER}:${BODYBUILDERD_GROUP}" \
+	"${BODYBUILDERD_DATADIR}"
+
+	checkpath \
+	-d \
+	--mode 0755 \
+	--owner "${BODYBUILDERD_USER}:${BODYBUILDERD_GROUP}" \
+	"${BODYBUILDERD_PIDDIR}"
+
+	checkpath -f \
+	-o "${BODYBUILDERD_USER}:${BODYBUILDERD_GROUP}" \
+	-m 0660 \
+	"${BODYBUILDERD_CONFIGFILE}"
+
+	checkconfig || return 1
+}
+
+checkconfig()
+{
+	if grep -qs '^rpcuser=' "${BODYBUILDERD_CONFIGFILE}" && \
+		! grep -qs '^rpcpassword=' "${BODYBUILDERD_CONFIGFILE}" ; then
+		eerror ""
+		eerror "ERROR: You must set a secure rpcpassword to run bodybuilderd."
+		eerror "The setting must appear in ${BODYBUILDERD_CONFIGFILE}"
+		eerror ""
+		eerror "This password is security critical to securing wallets "
+		eerror "and must not be the same as the rpcuser setting."
+		eerror "You can generate a suitable random password using the following "
+		eerror "command from the shell:"
+		eerror ""
+		eerror "bash -c 'tr -dc a-zA-Z0-9 < /dev/urandom | head -c32 && echo'"
+		eerror ""
+		eerror "It is recommended that you also set alertnotify so you are "
+		eerror "notified of problems:"
+		eerror ""
+		eerror "ie: alertnotify=echo %%s | mail -s \"Bodybuilder Alert\"" \
+			"admin@foo.com"
+		eerror ""
+		return 1
+	fi
+}

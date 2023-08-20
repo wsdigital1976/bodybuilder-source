@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Bodybuilder Core Security Policy
+    url: https://github.com/bodybuilder/bodybuilder/blob/master/SECURITY.md
+    about: View security policy
+  - name: Bodybuilder Core Developers
+    url: https://bitcoincore.org
+    about: Bodybuilder Core homepage
